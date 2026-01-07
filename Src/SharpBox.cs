@@ -16,7 +16,7 @@ using Mono.Cecil.Rocks;
 using Mono.Collections.Generic;
 using Sandbox;
 
-public sealed class SharpBox {
+public sealed class SharpBox : IAssemblyResolver {
     private sealed class Access {
         public required string name;
         public required string type;
@@ -29,6 +29,7 @@ public sealed class SharpBox {
     public List<Regex> Blacklist { get; private set; } = [];
     public List<string> WhitelistErrors { get; private set; } = [];
     private AssemblyNameReference? _currentAssembly;
+    private List<AssemblyDefinition> _assemblies = [];
     private ConcurrentDictionary<string, Access> _touched = [];
 
     public SharpBox() {
@@ -408,6 +409,7 @@ public sealed class SharpBox {
         if (context == null) { return (Task<object>)Task.CompletedTask; }
         var asms = new List<string>();
         var refAsms = new List<Assembly>();
+        _assemblies.Clear();
         var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies().Where(x => AssemblyWhitelist.Any(y => y == x.GetName().Name)).ToArray();
         asms.EnsureCapacity(loadedAssemblies.Length);
         foreach (var loadedAsm in loadedAssemblies) {
@@ -415,12 +417,14 @@ public sealed class SharpBox {
             if (!string.IsNullOrEmpty(loadedAsm.Location)) {
                 asms.Add(loadedAsm.Location);
                 refAsms.Add(loadedAsm);
+                _assemblies.Add(AssemblyDefinition.ReadAssembly(loadedAsm.Location));
                 continue;
             }
             var asmPath = Path.GetFullPath(Path.Join(AppDomain.CurrentDomain.BaseDirectory, $"{loadedAsm.GetName().Name}.dll"));
             if (!File.Exists(asmPath)) { continue; }
             asms.Add(asmPath);
             refAsms.Add(Assembly.LoadFile(asmPath));
+            _assemblies.Add(AssemblyDefinition.ReadAssembly(asmPath));
         }
         var dllName = Path.Combine(Path.GetTempPath(), $"SharpBox-Script-{Random.Shared.Next()}.dll");
         var opts = ScriptOptions.Default.WithAllowUnsafe(false).WithReferences(refAsms);
@@ -431,7 +435,7 @@ public sealed class SharpBox {
         if (!result.Success) {
             throw new CompilationErrorException(string.Join('\n', result.Diagnostics.Where(x => x.Severity == DiagnosticSeverity.Error).Select(x => x.ToString())), result.Diagnostics);
         }
-        var asmDef = AssemblyDefinition.ReadAssembly(dllName);
+        var asmDef = AssemblyDefinition.ReadAssembly(dllName, new ReaderParameters() { AssemblyResolver = this });
         if (!CheckAssembly(asmDef)) {
             throw new AccessViolationException(dllName);
         }
@@ -458,5 +462,16 @@ public sealed class SharpBox {
             result = (Task<object>)Task.CompletedTask;
             return false;
         }
+    }
+
+    public AssemblyDefinition Resolve(AssemblyNameReference name) {
+        return _assemblies.FirstOrDefault(x => x.Name.Name == name.Name);
+    }
+
+    public AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters) {
+        return Resolve(name);
+    }
+
+    public void Dispose() {
     }
 }
