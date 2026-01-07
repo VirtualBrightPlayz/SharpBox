@@ -27,6 +27,7 @@ public sealed class SharpBox {
     public List<string> AssemblyWhitelist { get; private set; } = [];
     public List<Regex> Whitelist { get; private set; } = [];
     public List<Regex> Blacklist { get; private set; } = [];
+    public List<string> WhitelistErrors { get; private set; } = [];
     private AssemblyNameReference? _currentAssembly;
     private ConcurrentDictionary<string, Access> _touched = [];
 
@@ -103,15 +104,12 @@ public sealed class SharpBox {
     }
 
     public bool IsPassingRules() {
-        var errs = new List<string>();
+        WhitelistErrors.Clear();
         foreach (var touch in _touched) {
             if (IsInWhitelist(touch.Key)) continue;
-            errs.Add(touch.Key);
+            WhitelistErrors.Add(touch.Key);
         }
-        foreach (var err in errs) {
-            Console.WriteLine(err);
-        }
-        return errs.Count == 0;
+        return WhitelistErrors.Count == 0;
     }
 
     private void Touch(string name, string type) {
