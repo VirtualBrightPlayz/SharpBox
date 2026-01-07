@@ -158,7 +158,6 @@ public sealed class SharpBox {
             throw new Exception($"Failed to resolve {typeRef}");
         }
         if (typeDef.Module.Assembly.Name.Name == _currentAssembly?.Name && typeDef.Module.Assembly.Name.Version == _currentAssembly?.Version) return;
-        if (AssemblyWhitelist.Any(x => x == typeDef.Module.Assembly.Name.Name)) return;
         Touch(typeDef);
     }
 
@@ -384,7 +383,7 @@ public sealed class SharpBox {
             Touch("System.Private.CoreLib/System.Runtime.CompilerServices.TypeForwardedToAttribute", "attribute");
         }
         TestAttributes(moduleDef.CustomAttributes);
-        foreach (var typeDef in moduleDef.Types) {
+        foreach (var typeDef in moduleDef.GetAllTypes()) {
             TestType(typeDef);
         }
     }
@@ -397,8 +396,7 @@ public sealed class SharpBox {
             TestModule(moduleDef);
         }
         var list = new List<string>();
-        list.AddRange(AssemblyWhitelist.Select(x => $"{x}/"));
-        list.Add($"{_currentAssembly.Name}/");
+        list.Add($"{assemblyDef.Name.Name}/");
         foreach (var key in _touched.Keys) {
             if (list.Any(key.StartsWith)) {
                 _touched.Remove(key, out _);
