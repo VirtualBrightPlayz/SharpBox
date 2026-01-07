@@ -398,7 +398,8 @@ public sealed class SharpBox {
             asms.Add(asmPath);
         }
         var dllName = Path.Combine(Path.GetTempPath(), $"SharpBox-Script-{Random.Shared.Next()}.dll");
-        var script = Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript.Create(text);
+        var opts = ScriptOptions.Default.WithAllowUnsafe(false);
+        var script = Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript.Create(text, opts);
         var result = script.GetCompilation()
             .AddReferences(asms.Select(x => MetadataReference.CreateFromFile(x)))
             .Emit(dllName);
