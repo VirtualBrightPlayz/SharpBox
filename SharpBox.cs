@@ -24,7 +24,7 @@ public sealed class SharpBox {
     }
 
     public string ScriptDir { get; set; }
-    public List<AssemblyNameReference> WhitelistedAssemblies { get; private set; } = [];
+    public List<string> AssemblyWhitelist { get; private set; } = [];
     public List<Regex> Whitelist { get; private set; } = [];
     public List<Regex> Blacklist { get; private set; } = [];
     private AssemblyNameReference? _currentAssembly;
@@ -35,6 +35,32 @@ public sealed class SharpBox {
     }
 
     public void AllowDefaults() {
+		AssemblyWhitelist.Add("System.Private.CoreLib");
+		AssemblyWhitelist.Add("System.Text.Json");
+		AssemblyWhitelist.Add("System.Numerics.Vectors");
+		AssemblyWhitelist.Add("System.ComponentModel.Annotations");
+		AssemblyWhitelist.Add("System.Runtime");
+		AssemblyWhitelist.Add("System.Linq");
+		AssemblyWhitelist.Add("System.Runtime.Extensions");
+		AssemblyWhitelist.Add("System.Collections");
+		AssemblyWhitelist.Add("System.Collections.Concurrent");
+		AssemblyWhitelist.Add("System.Text.RegularExpressions");
+		AssemblyWhitelist.Add("System.ComponentModel.Primitives");
+		AssemblyWhitelist.Add("System.IO.Compression");
+		AssemblyWhitelist.Add("System.Collections.Specialized");
+		AssemblyWhitelist.Add("System.Web.HttpUtility");
+		AssemblyWhitelist.Add("System.Private.Uri");
+		AssemblyWhitelist.Add("System.ComponentModel.Primitives");
+		AssemblyWhitelist.Add("System.ObjectModel");
+		AssemblyWhitelist.Add("System.Collections.Immutable");
+		AssemblyWhitelist.Add("System.Security.Cryptography");
+		AssemblyWhitelist.Add("System.Threading.Channels");
+		AssemblyWhitelist.Add("System.Threading");
+		AssemblyWhitelist.Add("System.Memory");
+		AssemblyWhitelist.Add("System.Net.Http");
+		AssemblyWhitelist.Add("System.Net.Http.Json");
+		AssemblyWhitelist.Add("System.Net.Primitives");
+
         AddRange(Rules.BaseAccess);
         AddRange(Rules.Types);
         AddRange(Rules.Numerics);
@@ -132,7 +158,7 @@ public sealed class SharpBox {
             throw new Exception($"Failed to resolve {typeRef}");
         }
         if (typeDef.Module.Assembly.Name.Name == _currentAssembly?.Name && typeDef.Module.Assembly.Name.Version == _currentAssembly?.Version) return;
-        if (WhitelistedAssemblies.Any(x => x.Name == typeDef.Module.Assembly.Name.Name && x.Version == typeDef.Module.Assembly.Name.Version)) return;
+        if (AssemblyWhitelist.Any(x => x == typeDef.Module.Assembly.Name.Name)) return;
         Touch(typeDef);
     }
 
@@ -371,7 +397,7 @@ public sealed class SharpBox {
             TestModule(moduleDef);
         }
         var list = new List<string>();
-        list.AddRange(WhitelistedAssemblies.Select(x => $"{x.Name}/"));
+        list.AddRange(AssemblyWhitelist.Select(x => $"{x}/"));
         list.Add($"{_currentAssembly.Name}/");
         foreach (var key in _touched.Keys) {
             if (list.Any(key.StartsWith)) {
@@ -385,7 +411,7 @@ public sealed class SharpBox {
         var context = AssemblyLoadContext.GetLoadContext(GetType().Assembly);
         if (context == null) { return (Task<object>)Task.CompletedTask; }
         var asms = new List<string>();
-        var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+        var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies().Where(x => AssemblyWhitelist.Any(y => y == x.GetName().Name)).ToArray();
         asms.EnsureCapacity(loadedAssemblies.Length);
         foreach (var loadedAsm in loadedAssemblies) {
             if (loadedAsm == null) { continue; }
@@ -398,7 +424,7 @@ public sealed class SharpBox {
             asms.Add(asmPath);
         }
         var dllName = Path.Combine(Path.GetTempPath(), $"SharpBox-Script-{Random.Shared.Next()}.dll");
-        var opts = ScriptOptions.Default.WithAllowUnsafe(false);
+        var opts = ScriptOptions.Default.WithAllowUnsafe(false).WithReferences(loadedAssemblies);
         var script = Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript.Create(text, opts);
         var result = script.GetCompilation()
             .AddReferences(asms.Select(x => MetadataReference.CreateFromFile(x)))
