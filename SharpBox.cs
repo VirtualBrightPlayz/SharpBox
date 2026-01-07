@@ -42,7 +42,7 @@ public sealed class SharpBox {
         AddRange(Rules.Exceptions);
         AddRange(Rules.Diagnostics);
         AddRange(Rules.Async);
-        AddRange(Rules.CompilerGenerated);
+        // AddRange(Rules.CompilerGenerated);
     }
 
     public void AddRange(IEnumerable<string> range) {
