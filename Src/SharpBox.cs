@@ -407,20 +407,23 @@ public sealed class SharpBox {
         var context = AssemblyLoadContext.GetLoadContext(GetType().Assembly);
         if (context == null) { return (Task<object>)Task.CompletedTask; }
         var asms = new List<string>();
+        var refAsms = new List<Assembly>();
         var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies().Where(x => AssemblyWhitelist.Any(y => y == x.GetName().Name)).ToArray();
         asms.EnsureCapacity(loadedAssemblies.Length);
         foreach (var loadedAsm in loadedAssemblies) {
             if (loadedAsm == null) { continue; }
             if (!string.IsNullOrEmpty(loadedAsm.Location)) {
                 asms.Add(loadedAsm.Location);
+                refAsms.Add(loadedAsm);
                 continue;
             }
             var asmPath = Path.GetFullPath(Path.Join(AppDomain.CurrentDomain.BaseDirectory, $"{loadedAsm.GetName().Name}.dll"));
             if (!File.Exists(asmPath)) { continue; }
             asms.Add(asmPath);
+            refAsms.Add(Assembly.LoadFile(asmPath));
         }
         var dllName = Path.Combine(Path.GetTempPath(), $"SharpBox-Script-{Random.Shared.Next()}.dll");
-        var opts = ScriptOptions.Default.WithAllowUnsafe(false).WithReferences(loadedAssemblies);
+        var opts = ScriptOptions.Default.WithAllowUnsafe(false).WithReferences(refAsms);
         var script = Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript.Create(text, opts);
         var result = script.GetCompilation()
             .AddReferences(asms.Select(x => MetadataReference.CreateFromFile(x)))
