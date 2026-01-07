@@ -4,14 +4,6 @@ internal static partial class Rules
 {
 	internal static string[] BaseAccess = new[]
 	{
-		"Sandbox.Engine/*",
-		"Sandbox.System/*",
-		"Sandbox.Filesystem/*",
-		"Sandbox.Bind/*",
-		"Sandbox.Reflection/*",
-		"Sandbox.Mounting/*",
-		"Microsoft.AspNetCore.Components/*", // this is our fake razor assembly
-
 		"System.Private.CoreLib/System.IDisposable*",
 		"System.Private.CoreLib/System.IAsyncDisposable*",
 
